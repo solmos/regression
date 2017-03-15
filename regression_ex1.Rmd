@@ -1,0 +1,240 @@
+---
+title: "Estimación del modelo lineal"
+author: "Sergio Olmos Pardo"
+date: "14/3/2017"
+output: html_document
+---
+
+# Ejercicios del libro de Faraway
+
+## Capítulo 2
+
+### 1.
+Cargamos el conjunto de datos `teengamb` en R y ajustamos un modelo lineal con el gasto en el juego como variable respuesta y sexo, estatus, salario y puntuación verbal como predictores.
+```{r}
+data(teengamb, package = "faraway")
+head(teengamb)
+teengamb_model <- lm(gamble ~ sex + status + income + verbal, data = teengamb)
+(gamb_summary <- summary(teengamb_model))
+```
+
+#### (a)
+El porcentaje de variación en la respuesta explicado por los predictores de este modelo viene dado por el coeficiente $R^2$.
+```{r}
+gamb_summary$adj.r.squared
+```
+
+#### (b)
+Accedemos al vector con los residuos del modelo y obtenemos el valor máximo (positivo).
+```{r}
+res <- gamb_summary$residuals
+names(which.max(res))
+```
+El número de caso correspondiente al residuo mayor es el 24.
+
+#### (c)
+La media y la mediana de los residuales son:
+```{r}
+mean(res)
+median(res)
+```
+
+#### (d)
+La correlación entre los residuales y los valores ajustados es prácticamente 0.
+```{r}
+gambling_fitted <- fitted(teengamb_model)
+cor(res, gambling_fitted)
+```
+
+#### (e)
+La correlación entre los residuos y los valores de `income` es
+```{r}
+cor(res, teengamb$income)
+```
+
+#### (f)
+El coeficiente para la variable `sex` es
+```{r}
+(coeff <- coef(teengamb_model))
+```
+El modelo predice que una mujer gastará alrededor de 22 libras menos que un hombre, manteniendo el resto de predictores iguales.
+
+***
+
+### 2.
+Cargamos el conjunto de datos `uswages` y ajustamos un modelo lineal con salario semanal como respuesta y años de educación y experiencia como predictores:
+```{r}
+data(uswages, package = "faraway")
+head(uswages)
+uswages_model <- lm(wage ~ educ + exper, data = uswages)
+summary(uswages_model)
+```
+Según este modelo, a misma experiencia, por cada año de educación que haya cursado un sujeto su salario semanal aumenta algo más de $50. Similarmente, a igual nivel de educación, por cada año de experiencia su salario semanal aumenta casi $10.
+
+El modelo alternativo es el mismo pero tomando el logaritmo de la respuesta:
+```{r}
+log_model <- lm(log(wage) ~ educ + exper, data = uswages)
+summary(log_model)
+```
+En este caso un año de educación aumenta 0.09 el logaritmo natural del salario semanal y un año de experiencia aumenta 0.02 el logaritmo natural del salario semanal.
+
+Está claro que el primer modelo es más fácil de interpretar.
+
+***
+
+### 4.
+El conjunto de datos es
+```{r}
+data(prostate, package = "faraway")
+head(prostate)
+```
+
+Partiendo del modelo lineal con `lpsa` como variable respuesta y `lcavol` como único predictor, iremos añadiendo las otras 7 de variables y anotando el error típico residual y las $R^2$.
+```{r}
+m1 <- summary(lm(lpsa ~ lcavol, data = prostate))
+m2 <- summary(lm(lpsa ~ lcavol + lweight, data = prostate))
+m3 <- summary(lm(lpsa ~ lcavol + lweight + svi, data = prostate))
+m4 <- summary(lm(lpsa ~ lcavol + lweight + svi +
+                         lbph, data = prostate))
+m5 <- summary(lm(lpsa ~ lcavol + lweight + svi +
+                         lbph + age, data = prostate))
+m6 <- summary(lm(lpsa ~ lcavol + lweight + svi +
+                         lbph + age + lcp, data = prostate))
+m7 <- summary(lm(lpsa ~ lcavol + lweight + svi +
+                         lbph + age + lcp + pgg45, data = prostate))
+m8 <- summary(lm(lpsa ~ lcavol + lweight + svi +
+                         lbph + age + lcp + pgg45 + gleason, data = prostate))
+r_2 <- c(m1$r.squared, m2$r.squared, m3$r.squared,
+         m4$r.squared, m5$r.squared, m6$r.squared,
+         m7$r.squared, m8$r.squared)
+se <- c(m1$sigma, m2$sigma, m3$sigma, m4$sigma,
+        m5$sigma, m6$sigma, m7$sigma, m8$sigma)
+
+library(ggplot2)
+ggplot(data = as.data.frame(r_2)) + geom_path(mapping = aes(x = 1:8, y = r_2))
+ggplot(data = as.data.frame(se)) + geom_path(mapping = aes(x = 1:8, y = se))
+```
+
+Los gráficos sugieren que bastaría con el model `m3`.
+
+***
+
+### 5.
+Utilizando el conjunto de datos del ejercicio anterior, crearemos un diagrama de dispersión de `lpsa` contra `lcalvol` e incluiremos las lineas de regresión obtenidas de `lpsa ~ lcalvol` y `lcalvol ~ lpsa`.
+```{r}
+mod1 <- lm(lpsa ~ lcavol, data = prostate)
+mod2 <- lm(lcavol ~ lpsa, data = prostate)
+```
+
+Queremos hayar las dos lineas de regresión resultantes de ajustar los modelos `lpsa ~ lcavol` y `lcavol ~ lpsa`. Obtenemos los coeficientes de los dos modelos.
+```{r}
+(coef_mod1 <- coef(mod1))
+(coef_mod2 <- coef(mod2))
+```
+
+Dejemos que $y$ sea `lpsa`, $x$ sea `lcavol`. Luego las ecuaciones de las lineas de regresión vienes dadas por $y = \beta_0 + \beta_1 x$ para el primer modelo y $x = \alpha_0 + \alpha_1 y$, donde $\beta_i$ y $\alpha_i$ son los correspondientes parámetros del modelo.
+
+Para poder mostrar la recta correspondiente al modelo `lcavol ~ lpsa` en nuestra gráfica manipulamos la ecuación de la segunda linea de regresión y obtenemos que
+$$
+y = - \frac{\alpha_0}{\alpha_1} + \frac{1}{\alpha_1} x
+$$
+De modo que la pendiente y la intercepción serían
+```{r}
+mod2_slope <- 1 / mod2$coefficients[2]
+mod2_intercept <- - mod2$coefficients[1] / mod2$coefficients[2]
+```
+
+Obtenemos la gráfica de la siguiente manera
+```{r}
+ggplot(data = prostate, mapping = aes(x = lcavol, y = lpsa)) + 
+        geom_point() +
+        geom_abline(slope = mod1$coefficients[2], intercept = mod1$coefficients[1]) +
+        geom_abline(slope = mod2_slope, intercept = mod2_intercept)
+```
+
+Ahora obtendremos el punto en el que las dos rectas se cruzan. Podemos hayar este punto algebraicamente resolviendo la ecuación
+$$
+\begin{aligned}
+\beta_1 x + \beta_0 &= \alpha_1 ^* x + \alpha_0 ^* \\
+x(\beta_1 - \alpha_1 ^*) &= \alpha_0 ^* - \beta_0 \\
+x &= \frac{\alpha_0 ^* - \beta_0}{\beta_1 - \alpha_1 ^*}
+\end{aligned}
+$$
+
+Utilizaremos R para obtener los valores de `lpsa` y `lcavol` donde las dos rectas se cruzan.
+```{r}
+mod1_slope <- mod1$coefficients[2]
+mod1_intercept <- mod1$coefficients[1]
+x <- (mod2_intercept - mod1_intercept) / (mod1_slope - mod2_slope)
+x <- unname(x)
+y <- mod1_slope * x + mod1_intercept
+y <- unname(y)
+intersection <- c(lpsa = x, lcavol = y)
+intersection
+```
+
+***
+
+### 6.
+El conjunto de datos es el siguiente
+```{r}
+data(cheddar, package = "faraway")
+head(cheddar)
+```
+
+#### (a)
+Los coeficientes del modelo con `taste` como respuesta y los tres contenidos químicos como predictores son
+```{r}
+cheddar_model <- lm(taste ~ Acetic + H2S + Lactic, data = cheddar)
+summary(cheddar_model)
+coefficients(cheddar_model)
+```
+
+#### (b)
+La correlación entre los valores ajustados y la respuesta.
+```{r}
+cor(fitted(cheddar_model), cheddar$taste) ^ 2
+```
+Este valor corresponde al valor de $R^2$ del modelo.
+```{r}
+summary(cheddar_model)$r.squared
+```
+
+#### (c)
+Ajustaremos el mismo modelo pero sin termino de intercepción.
+```{r}
+cheddar_no_intercept <- lm(taste ~ 0 + Acetic + H2S + Lactic, data = cheddar)
+summary(cheddar_no_intercept)
+```
+
+Otra medida de bondad de ajuste es el error típico residual que viene dado por:
+```{r}
+summary(cheddar_no_intercept)$sigma
+```
+Cuanto menor sea esta cantidad mejor se ajusta el modelo.
+
+#### (d)
+Primero creamos la matriz $\textbf X$ y el vector $\textbf y$:
+```{r}
+x <- model.matrix( ~ Acetic + H2S + Lactic, data = cheddar)
+y <- cheddar$taste
+```
+
+Realizamos la descomposición QR:
+```{r}
+qrx <- qr(x)
+```
+
+Usando `qr.q()` para calcular $Q_f$ podemos obtener $f$:
+```{r}
+f <- t(qr.Q(qrx)) %*% y
+```
+
+Y ahora resolvemos $R \beta = f$:
+```{r}
+backsolve(qr.R(qrx), f)
+```
+
+Que se corresponden con los coeficientes obtenidos en el apartado (a).
+
+***
